@@ -71,7 +71,18 @@ onAuthStateChanged(auth, async (user) => {
 
 async function loadProfile(){
 
+  if(!borrowerId){
+    alert("Invalid borrower ID");
+    return;
+  }
+
   const borrowerDoc = await getDoc(doc(db,"borrowers",borrowerId));
+
+  if(!borrowerDoc.exists()){
+    alert("Borrower not found");
+    return;
+  }
+
   const borrower = borrowerDoc.data();
 
   document.getElementById("profile").innerHTML = `
@@ -106,11 +117,16 @@ async function loadProfile(){
 
     for(const instDoc of instSnap.docs){
 
-      const inst = instDoc.data();
+      let inst = instDoc.data();
+
+      let due = null;
+      if(inst.dueDate && inst.dueDate.toDate){
+        due = inst.dueDate.toDate();
+      }
 
       loansHtml += `
         <div style="margin-top:6px">
-          Week ${inst.installmentNumber}
+          Installment ${inst.installmentNumber}
           - ₹${inst.amount}
           <span class="status ${inst.status}">
             ${inst.status}

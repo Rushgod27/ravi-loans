@@ -40,10 +40,6 @@ button{
   border-radius:10px;
   font-weight:600;
 }
-.small{
-  font-size:13px;
-  color:#777;
-}
 .nav{
   position:fixed;
   bottom:0;
@@ -56,14 +52,12 @@ button{
   justify-content:space-around;
   align-items:center;
 }
-.nav div{
-  font-size:14px;
-}
 .active{
   color:#2563eb;
   font-weight:600;
 }
 </style>
+
 </head>
 <body>
 
@@ -73,7 +67,7 @@ button{
   <input id="name" placeholder="Borrower Name">
   <input id="phone" placeholder="Phone Number">
   <button id="saveBtn">Save Borrower</button>
-  <div class="small" id="message"></div>
+  <div id="message" style="font-size:13px;color:#777;margin-top:6px;"></div>
 </div>
 
 <div id="list"></div>
@@ -86,14 +80,11 @@ button{
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { 
-  getAuth, onAuthStateChanged 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged }
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-import { 
-  getFirestore, collection, addDoc, getDocs,
-  query, where, Timestamp 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, query, where, Timestamp }
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 
 const firebaseConfig = {
@@ -109,20 +100,25 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const storedUser = JSON.parse(localStorage.getItem("raviUser"));
+let currentUser = null;
 
-if(!storedUser){
-  window.location.href = "/ravi-loans/login.html";
-}
+// Proper authentication protection
+onAuthStateChanged(auth, async (user) => {
 
-onAuthStateChanged(auth, (user)=>{
-  if(!user){
+  if (!user) {
     window.location.href = "/ravi-loans/login.html";
-  }else{
-    loadBorrowers();
+    return;
   }
-});
 
+  currentUser = JSON.parse(localStorage.getItem("raviUser"));
+
+  if (!currentUser) {
+    window.location.href = "/ravi-loans/login.html";
+    return;
+  }
+
+  loadBorrowers();
+});
 
 document.getElementById("saveBtn").addEventListener("click", async () => {
 
@@ -130,30 +126,29 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
   const phone = document.getElementById("phone").value.trim();
   const message = document.getElementById("message");
 
-  if(!name || !phone){
+  if (!name || !phone) {
     message.innerText = "Fill all fields";
     return;
   }
 
-  // 🔎 Check duplicate in same branch
   const duplicateCheck = await getDocs(
     query(collection(db,"borrowers"),
-    where("branchId","==",storedUser.branchId),
+    where("branchId","==",currentUser.branchId),
     where("phone","==",phone))
   );
 
-  if(!duplicateCheck.empty){
-    if(!confirm("Borrower with this phone already exists. Continue?")){
+  if (!duplicateCheck.empty) {
+    if (!confirm("Borrower with this phone already exists. Continue?")) {
       return;
     }
   }
 
   await addDoc(collection(db,"borrowers"),{
-    name:name,
-    phone:phone,
-    branchId:storedUser.branchId,
-    createdBy:storedUser.uid,
-    createdAt:Timestamp.now()
+    name,
+    phone,
+    branchId: currentUser.branchId,
+    createdBy: currentUser.uid,
+    createdAt: Timestamp.now()
   });
 
   message.innerText = "Borrower Saved";
@@ -165,19 +160,19 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
 
 });
 
-
 async function loadBorrowers(){
 
   const list = document.getElementById("list");
-  list.innerHTML="";
+  list.innerHTML = "";
 
   const snap = await getDocs(
     query(collection(db,"borrowers"),
-    where("branchId","==",storedUser.branchId))
+    where("branchId","==",currentUser.branchId))
   );
 
   snap.forEach(doc=>{
     const b = doc.data();
+
     list.innerHTML += `
       <div class="card">
         <b>${b.name}</b><br>
@@ -185,7 +180,6 @@ async function loadBorrowers(){
       </div>
     `;
   });
-
 }
 
 window.goDashboard = function(){

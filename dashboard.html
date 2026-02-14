@@ -3,84 +3,37 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Branch Dashboard</title>
+<title>Dashboard</title>
 
 <style>
-body{
-  margin:0;
-  font-family:system-ui;
-  background:#f1f5f9;
-  padding:16px;
-}
-.header{
-  font-size:20px;
-  font-weight:600;
-  margin-bottom:10px;
-}
-.card{
-  background:#fff;
-  padding:16px;
-  border-radius:14px;
-  margin-bottom:12px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.05);
-}
-.value{
-  font-size:18px;
-  font-weight:600;
-}
-button{
-  padding:12px;
-  background:#2563eb;
-  color:#fff;
-  border:none;
-  border-radius:10px;
-  margin-top:10px;
-}
+body{font-family:system-ui;background:#f1f5f9;margin:0;padding:20px;}
+.card{background:#fff;padding:16px;border-radius:12px;margin-bottom:12px;}
+.value{font-weight:600;font-size:18px;}
+button{padding:12px;background:#2563eb;color:#fff;border:none;border-radius:8px;margin-top:10px;}
+.nav{position:fixed;bottom:0;left:0;right:0;height:60px;background:#fff;border-top:1px solid #ddd;display:flex;justify-content:space-around;align-items:center;}
+.active{color:#2563eb;font-weight:600;}
 </style>
-
 </head>
 <body>
 
-<div class="header" id="welcome"></div>
+<h2 id="welcome"></h2>
 
 <div class="card">
-  <div>Total Borrowers</div>
+  Total Borrowers
   <div class="value" id="totalBorrowers">0</div>
-</div>
-
-<div class="card">
-  <div>Active Loans</div>
-  <div class="value" id="activeLoans">0</div>
-</div>
-
-<div class="card">
-  <div>Total Principal Given</div>
-  <div class="value" id="principalTotal">₹0</div>
-</div>
-
-<div class="card">
-  <div>Total Interest Collected</div>
-  <div class="value" id="interestTotal">₹0</div>
-</div>
-
-<div class="card">
-  <div>Overdue Installments</div>
-  <div class="value" id="overdueCount">0</div>
 </div>
 
 <button id="logoutBtn">Logout</button>
 
+<div class="nav">
+  <div class="active">Dashboard</div>
+  <div onclick="goBorrowers()">Borrowers</div>
+</div>
+
 <script type="module">
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { 
-  getAuth, onAuthStateChanged, signOut 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-import { 
-  getFirestore, collection, getDocs, query, where 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCX4nJv28LRTtCcH3sjj-LUiXzYfxK3SDM",
@@ -95,89 +48,36 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const storedUser = JSON.parse(localStorage.getItem("raviUser"));
-
 onAuthStateChanged(auth, async (user) => {
-
-  if (!user || !storedUser) {
-    window.location.href = "login.html";
+  if (!user) {
+    window.location.href = "/ravi-loans/login.html";
     return;
   }
 
-  document.getElementById("welcome").innerText =
-    "Welcome " + storedUser.name;
+  const storedUser = JSON.parse(localStorage.getItem("raviUser"));
+  if (!storedUser) {
+    window.location.href = "/ravi-loans/login.html";
+    return;
+  }
 
-  const branchId = storedUser.branchId;
+  document.getElementById("welcome").innerText = "Welcome " + storedUser.name;
 
-  // 🟢 BORROWERS COUNT
-  const borrowerSnap = await getDocs(
-    query(collection(db,"borrowers"),
-    where("branchId","==",branchId))
-  );
-  document.getElementById("totalBorrowers").innerText =
-    borrowerSnap.size;
-
-  // 🟢 ACTIVE LOANS + PRINCIPAL
-  let activeLoanCount = 0;
-  let principalSum = 0;
-
-  const loansSnap = await getDocs(
-    query(collection(db,"loans"),
-    where("branchId","==",branchId))
+  const snap = await getDocs(
+    query(collection(db,"borrowers"), where("branchId","==",storedUser.branchId))
   );
 
-  loansSnap.forEach(doc=>{
-    const loan = doc.data();
-    if(loan.status === "active"){
-      activeLoanCount++;
-      principalSum += loan.principal;
-    }
-  });
-
-  document.getElementById("activeLoans").innerText =
-    activeLoanCount;
-
-  document.getElementById("principalTotal").innerText =
-    "₹" + principalSum;
-
-  // 🟢 INTEREST COLLECTED
-  let interestSum = 0;
-
-  const collectionSnap = await getDocs(
-    query(collection(db,"collections"),
-    where("branchId","==",branchId),
-    where("type","==","upfront"))
-  );
-
-  collectionSnap.forEach(doc=>{
-    interestSum += doc.data().amount;
-  });
-
-  document.getElementById("interestTotal").innerText =
-    "₹" + interestSum;
-
-  // 🟢 OVERDUE COUNT
-  let overdue = 0;
-
-  const instSnap = await getDocs(
-    query(collection(db,"installments"),
-    where("branchId","==",branchId),
-    where("status","==","overdue"))
-  );
-
-  overdue = instSnap.size;
-
-  document.getElementById("overdueCount").innerText =
-    overdue;
-
+  document.getElementById("totalBorrowers").innerText = snap.size;
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async () => {
   await signOut(auth);
   localStorage.removeItem("raviUser");
-  window.location.href = "login.html";
+  window.location.href = "/ravi-loans/login.html";
 });
 
+window.goBorrowers = function(){
+  window.location.href = "/ravi-loans/borrowers.html";
+};
 </script>
 
 </body>

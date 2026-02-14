@@ -3,19 +3,182 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard</title>
-<link rel="stylesheet" href="css/style.css">
-</head>
+<title>Branch Dashboard</title>
 
+<style>
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#f1f5f9;
+  padding:16px;
+}
+.header{
+  font-size:20px;
+  font-weight:600;
+  margin-bottom:10px;
+}
+.card{
+  background:#fff;
+  padding:16px;
+  border-radius:14px;
+  margin-bottom:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
+}
+.value{
+  font-size:18px;
+  font-weight:600;
+}
+button{
+  padding:12px;
+  background:#2563eb;
+  color:#fff;
+  border:none;
+  border-radius:10px;
+  margin-top:10px;
+}
+</style>
+
+</head>
 <body>
 
-<div class="container">
-  <h2 id="welcome"></h2>
-  <p>Branch Dashboard</p>
-  <button onclick="logout()">Logout</button>
+<div class="header" id="welcome"></div>
+
+<div class="card">
+  <div>Total Borrowers</div>
+  <div class="value" id="totalBorrowers">0</div>
 </div>
 
-<script type="module" src="js/dashboard.js"></script>
+<div class="card">
+  <div>Active Loans</div>
+  <div class="value" id="activeLoans">0</div>
+</div>
+
+<div class="card">
+  <div>Total Principal Given</div>
+  <div class="value" id="principalTotal">₹0</div>
+</div>
+
+<div class="card">
+  <div>Total Interest Collected</div>
+  <div class="value" id="interestTotal">₹0</div>
+</div>
+
+<div class="card">
+  <div>Overdue Installments</div>
+  <div class="value" id="overdueCount">0</div>
+</div>
+
+<button id="logoutBtn">Logout</button>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { 
+  getAuth, onAuthStateChanged, signOut 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import { 
+  getFirestore, collection, getDocs, query, where 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCX4nJv28LRTtCcH3sjj-LUiXzYfxK3SDM",
+  authDomain: "loan-management-system-a5bd8.firebaseapp.com",
+  projectId: "loan-management-system-a5bd8",
+  storageBucket: "loan-management-system-a5bd8.appspot.com",
+  messagingSenderId: "29727312343",
+  appId: "1:29727312343:web:14e58637f47a0994fde392"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const storedUser = JSON.parse(localStorage.getItem("raviUser"));
+
+onAuthStateChanged(auth, async (user) => {
+
+  if (!user || !storedUser) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  document.getElementById("welcome").innerText =
+    "Welcome " + storedUser.name;
+
+  const branchId = storedUser.branchId;
+
+  // 🟢 BORROWERS COUNT
+  const borrowerSnap = await getDocs(
+    query(collection(db,"borrowers"),
+    where("branchId","==",branchId))
+  );
+  document.getElementById("totalBorrowers").innerText =
+    borrowerSnap.size;
+
+  // 🟢 ACTIVE LOANS + PRINCIPAL
+  let activeLoanCount = 0;
+  let principalSum = 0;
+
+  const loansSnap = await getDocs(
+    query(collection(db,"loans"),
+    where("branchId","==",branchId))
+  );
+
+  loansSnap.forEach(doc=>{
+    const loan = doc.data();
+    if(loan.status === "active"){
+      activeLoanCount++;
+      principalSum += loan.principal;
+    }
+  });
+
+  document.getElementById("activeLoans").innerText =
+    activeLoanCount;
+
+  document.getElementById("principalTotal").innerText =
+    "₹" + principalSum;
+
+  // 🟢 INTEREST COLLECTED
+  let interestSum = 0;
+
+  const collectionSnap = await getDocs(
+    query(collection(db,"collections"),
+    where("branchId","==",branchId),
+    where("type","==","upfront"))
+  );
+
+  collectionSnap.forEach(doc=>{
+    interestSum += doc.data().amount;
+  });
+
+  document.getElementById("interestTotal").innerText =
+    "₹" + interestSum;
+
+  // 🟢 OVERDUE COUNT
+  let overdue = 0;
+
+  const instSnap = await getDocs(
+    query(collection(db,"installments"),
+    where("branchId","==",branchId),
+    where("status","==","overdue"))
+  );
+
+  overdue = instSnap.size;
+
+  document.getElementById("overdueCount").innerText =
+    overdue;
+
+});
+
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  await signOut(auth);
+  localStorage.removeItem("raviUser");
+  window.location.href = "login.html";
+});
+
+</script>
 
 </body>
 </html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Borrowers</title>
+
+<style>
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#f1f5f9;
+  padding:16px;
+}
+.header{
+  font-size:20px;
+  font-weight:600;
+  margin-bottom:16px;
+}
+.card{
+  background:#fff;
+  padding:16px;
+  border-radius:14px;
+  margin-bottom:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
+}
+input{
+  width:100%;
+  padding:12px;
+  margin-bottom:10px;
+  border-radius:10px;
+  border:1px solid #ddd;
+}
+button{
+  width:100%;
+  padding:12px;
+  background:#2563eb;
+  border:none;
+  color:white;
+  border-radius:10px;
+  font-weight:600;
+}
+.small{
+  font-size:13px;
+  color:#777;
+}
+.nav{
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  height:60px;
+  background:#fff;
+  border-top:1px solid #ddd;
+  display:flex;
+  justify-content:space-around;
+  align-items:center;
+}
+.nav div{
+  font-size:14px;
+}
+.active{
+  color:#2563eb;
+  font-weight:600;
+}
+</style>
+</head>
+<body>
+
+<div class="header">Borrowers</div>
+
+<div class="card">
+  <input id="name" placeholder="Borrower Name">
+  <input id="phone" placeholder="Phone Number">
+  <button id="saveBtn">Save Borrower</button>
+  <div class="small" id="message"></div>
+</div>
+
+<div id="list"></div>
+
+<div class="nav">
+  <div onclick="goDashboard()">Dashboard</div>
+  <div class="active">Borrowers</div>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { 
+  getAuth, onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import { 
+  getFirestore, collection, addDoc, getDocs,
+  query, where, Timestamp 
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCX4nJv28LRTtCcH3sjj-LUiXzYfxK3SDM",
+  authDomain: "loan-management-system-a5bd8.firebaseapp.com",
+  projectId: "loan-management-system-a5bd8",
+  storageBucket: "loan-management-system-a5bd8.appspot.com",
+  messagingSenderId: "29727312343",
+  appId: "1:29727312343:web:14e58637f47a0994fde392"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const storedUser = JSON.parse(localStorage.getItem("raviUser"));
+
+if(!storedUser){
+  window.location.href = "/ravi-loans/login.html";
+}
+
+onAuthStateChanged(auth, (user)=>{
+  if(!user){
+    window.location.href = "/ravi-loans/login.html";
+  }else{
+    loadBorrowers();
+  }
+});
+
+
+document.getElementById("saveBtn").addEventListener("click", async () => {
+
+  const name = document.getElementById("name").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const message = document.getElementById("message");
+
+  if(!name || !phone){
+    message.innerText = "Fill all fields";
+    return;
+  }
+
+  // 🔎 Check duplicate in same branch
+  const duplicateCheck = await getDocs(
+    query(collection(db,"borrowers"),
+    where("branchId","==",storedUser.branchId),
+    where("phone","==",phone))
+  );
+
+  if(!duplicateCheck.empty){
+    if(!confirm("Borrower with this phone already exists. Continue?")){
+      return;
+    }
+  }
+
+  await addDoc(collection(db,"borrowers"),{
+    name:name,
+    phone:phone,
+    branchId:storedUser.branchId,
+    createdBy:storedUser.uid,
+    createdAt:Timestamp.now()
+  });
+
+  message.innerText = "Borrower Saved";
+
+  document.getElementById("name").value="";
+  document.getElementById("phone").value="";
+
+  loadBorrowers();
+
+});
+
+
+async function loadBorrowers(){
+
+  const list = document.getElementById("list");
+  list.innerHTML="";
+
+  const snap = await getDocs(
+    query(collection(db,"borrowers"),
+    where("branchId","==",storedUser.branchId))
+  );
+
+  snap.forEach(doc=>{
+    const b = doc.data();
+    list.innerHTML += `
+      <div class="card">
+        <b>${b.name}</b><br>
+        ${b.phone}
+      </div>
+    `;
+  });
+
+}
+
+window.goDashboard = function(){
+  window.location.href = "/ravi-loans/dashboard.html";
+};
+
+</script>
+
+</body>
+</html>

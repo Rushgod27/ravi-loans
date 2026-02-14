@@ -62,11 +62,12 @@ button{
 
 <button id="logoutBtn">Logout</button>
 
-<!-- Bottom Navigation -->
 <div class="nav">
   <div class="active">Dashboard</div>
   <div onclick="goBorrowers()">Borrowers</div>
+  <div onclick="goLoans()">Loans</div>
 </div>
+
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -118,6 +119,11 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
 window.goBorrowers = function(){
   window.location.href = "/ravi-loans/borrowers.html";
 };
+
+window.goLoans = function(){
+  window.location.href = "/ravi-loans/loan.html";
+};
+
 </script>
 
 </body>

@@ -4,23 +4,91 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ravi Loans - Login</title>
-<link rel="stylesheet" href="css/style.css">
-</head>
 
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import { getFirestore, doc, getDoc } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCX4nJv28LRTtCcH3sjj-LUiXzYfxK3SDM",
+  authDomain: "loan-management-system-a5bd8.firebaseapp.com",
+  projectId: "loan-management-system-a5bd8",
+  storageBucket: "loan-management-system-a5bd8.firebasestorage.app",
+  messagingSenderId: "29727312343",
+  appId: "1:29727312343:web:14e58637f47a0994fde392"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+
+document.getElementById("loginBtn")?.addEventListener("click", async () => {
+
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const errorEl = document.getElementById("error");
+
+  errorEl.innerText = "";
+
+  try {
+
+    const userCredential = 
+      await signInWithEmailAndPassword(auth, email, password);
+
+    const uid = userCredential.user.uid;
+
+    const userDoc = await getDoc(doc(db, "users", uid));
+
+    if (!userDoc.exists()) {
+      errorEl.innerText = "User profile not found.";
+      return;
+    }
+
+    const data = userDoc.data();
+
+    localStorage.setItem("raviUser", JSON.stringify({
+      uid: uid,
+      role: data.role,
+      branchId: data.branchId,
+      name: data.name
+    }));
+
+    window.location.href = "dashboard.html";
+
+  } catch (err) {
+    errorEl.innerText = err.message;
+  }
+
+});
+
+</script>
+
+<style>
+body{font-family:system-ui;background:#f1f5f9;margin:0;padding:20px;}
+input{display:block;width:100%;padding:14px;margin-bottom:10px;}
+button{padding:14px;width:100%;background:#2563eb;color:#fff;border:none;}
+.error{color:red;}
+</style>
+
+</head>
 <body>
 
-<div class="container center">
-  <h2>Ravi Loans</h2>
+<h2>Ravi Loans</h2>
 
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="password" placeholder="Password">
+<input id="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password">
 
 <button id="loginBtn">Login</button>
 
-  <p id="error" class="error"></p>
-</div>
-
-<script type="module" src="js/auth.js"></script>
+<p id="error" class="error"></p>
 
 </body>
 </html>

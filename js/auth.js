@@ -12,7 +12,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 
-window.login = async function () {
+const loginBtn = document.getElementById("loginBtn");
+
+loginBtn.addEventListener("click", async () => {
 
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
@@ -27,13 +29,11 @@ window.login = async function () {
 
   try {
 
-    // 🔐 Firebase Authentication Login
     const userCredential =
       await signInWithEmailAndPassword(auth, email, password);
 
     const uid = userCredential.user.uid;
 
-    // 📦 Fetch Firestore user data
     const userDoc = await getDoc(doc(db, "users", uid));
 
     if (!userDoc.exists()) {
@@ -44,11 +44,10 @@ window.login = async function () {
     const userData = userDoc.data();
 
     if (userData.isActive === false) {
-      errorEl.innerText = "This account is disabled.";
+      errorEl.innerText = "Account disabled.";
       return;
     }
 
-    // 💾 Save session locally
     localStorage.setItem("raviUser", JSON.stringify({
       uid: uid,
       name: userData.name,
@@ -56,10 +55,10 @@ window.login = async function () {
       branchId: userData.branchId
     }));
 
-    // 🚀 Redirect
     window.location.href = "dashboard.html";
 
   } catch (error) {
     errorEl.innerText = error.message;
   }
-};
+
+});

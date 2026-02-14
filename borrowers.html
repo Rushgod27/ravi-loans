@@ -30,7 +30,9 @@ button{width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-
 <div class="nav">
   <div onclick="goDashboard()">Dashboard</div>
   <div class="active">Borrowers</div>
+  <div onclick="goLoans()">Loans</div>
 </div>
+
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -110,6 +112,11 @@ async function loadBorrowers(){
 window.goDashboard = function(){
   window.location.href = "/ravi-loans/dashboard.html";
 };
+
+window.goLoans = function(){
+  window.location.href = "/ravi-loans/loan.html";
+};
+
 </script>
 
 </body>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Loan</title>
+
+<style>
+body{font-family:system-ui;background:#f1f5f9;margin:0;padding:20px;}
+.card{background:#fff;padding:16px;border-radius:12px;margin-bottom:12px;}
+input,select{
+  width:100%;padding:12px;margin-bottom:10px;
+  border-radius:8px;border:1px solid #ccc;
+}
+button{
+  width:100%;padding:14px;background:#2563eb;
+  color:#fff;border:none;border-radius:8px;font-weight:600;
+}
+.search-result{
+  padding:10px;border:1px solid #eee;
+  border-radius:8px;margin-bottom:6px;
+  background:#fafafa;cursor:pointer;
+}
+.search-result:hover{
+  background:#e0e7ff;
+}
+.selected{
+  background:#dbeafe;
+  padding:10px;border-radius:8px;
+  margin-bottom:10px;font-size:14px;
+}
+.preview{
+  background:#eef2ff;
+  padding:10px;border-radius:8px;
+  font-size:14px;margin-top:6px;
+}
+.nav{
+  position:fixed;bottom:0;left:0;right:0;height:60px;
+  background:#fff;border-top:1px solid #ddd;
+  display:flex;justify-content:space-around;align-items:center;
+}
+.active{color:#2563eb;font-weight:600;}
+</style>
+</head>
+<body>
+
+<h2>Create Loan</h2>
+
+<div class="card">
+
+  <input id="phoneSearch" placeholder="Search Borrower Phone">
+
+  <div id="searchResults"></div>
+  <div id="selectedBorrower"></div>
+
+  <input id="principal" type="number" placeholder="Principal Amount">
+  <input id="interest" type="number" placeholder="Interest %">
+
+  <select id="type">
+    <option value="7">Weekly (7 days)</option>
+    <option value="15">15 Days</option>
+    <option value="30">Monthly (30 days)</option>
+  </select>
+
+  <input id="periods" type="number" placeholder="Number of Installments">
+  <input id="startDate" type="date">
+
+  <div id="preview" class="preview"></div>
+
+  <button id="createBtn">Create Loan</button>
+</div>
+
+<div class="nav">
+  <div onclick="goDashboard()">Dashboard</div>
+  <div class="active">Loans</div>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged }
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import {
+  getFirestore, collection, addDoc,
+  getDocs, query, where, Timestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCX4nJv28LRTtCcH3sjj-LUiXzYfxK3SDM",
+  authDomain: "loan-management-system-a5bd8.firebaseapp.com",
+  projectId: "loan-management-system-a5bd8",
+  storageBucket: "loan-management-system-a5bd8.appspot.com",
+  messagingSenderId: "29727312343",
+  appId: "1:29727312343:web:14e58637f47a0994fde392"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let currentUser = null;
+let selectedBorrowerId = null;
+
+onAuthStateChanged(auth, async (user) => {
+
+  if (!user) {
+    window.location.href = "/ravi-loans/login.html";
+    return;
+  }
+
+  currentUser = JSON.parse(localStorage.getItem("raviUser"));
+  if (!currentUser) {
+    window.location.href = "/ravi-loans/login.html";
+    return;
+  }
+
+});
+
+document.getElementById("phoneSearch")
+.addEventListener("input", async (e) => {
+
+  const search = e.target.value.trim();
+
+  if (search.length < 2) {
+    document.getElementById("searchResults").innerHTML = "";
+    return;
+  }
+
+  const snap = await getDocs(
+    query(collection(db,"borrowers"),
+    where("branchId","==",currentUser.branchId))
+  );
+
+  const resultsDiv = document.getElementById("searchResults");
+  resultsDiv.innerHTML = "";
+
+  snap.forEach(doc=>{
+    const b = doc.data();
+    if (b.phone.includes(search)) {
+      resultsDiv.innerHTML += `
+        <div class="search-result"
+             onclick="selectBorrower('${doc.id}',
+             '${b.name}','${b.phone}')">
+          ${b.name} - ${b.phone}
+        </div>`;
+    }
+  });
+
+});
+
+window.selectBorrower = function(id,name,phone){
+
+  selectedBorrowerId = id;
+
+  document.getElementById("selectedBorrower").innerHTML = `
+    <div class="selected">
+      Selected: <b>${name}</b><br>
+      ${phone}
+    </div>
+  `;
+
+  document.getElementById("searchResults").innerHTML = "";
+};
+
+function updatePreview(){
+
+  const principal = parseFloat(document.getElementById("principal").value);
+  const interest = parseFloat(document.getElementById("interest").value);
+  const periods = parseInt(document.getElementById("periods").value);
+
+  if(!principal || !periods) return;
+
+  const installment = principal / periods;
+  const upfront = (principal * interest) / 100;
+
+  document.getElementById("preview").innerHTML =
+    `Installment: ₹${installment.toFixed(2)}<br>
+     Upfront Interest: ₹${upfront.toFixed(2)}`;
+}
+
+document.getElementById("principal").addEventListener("input",updatePreview);
+document.getElementById("interest").addEventListener("input",updatePreview);
+document.getElementById("periods").addEventListener("input",updatePreview);
+
+document.getElementById("createBtn")
+.addEventListener("click", async () => {
+
+  const principal = parseFloat(document.getElementById("principal").value);
+  const interestPercent = parseFloat(document.getElementById("interest").value);
+  const days = parseInt(document.getElementById("type").value);
+  const periods = parseInt(document.getElementById("periods").value);
+  const startDate = new Date(document.getElementById("startDate").value);
+
+  if(!selectedBorrowerId || !principal || !interestPercent || !periods || !startDate){
+    alert("Complete all fields & select borrower");
+    return;
+  }
+
+  const installmentAmount = principal / periods;
+  const upfrontInterest = (principal * interestPercent)/100;
+
+  const loanRef = await addDoc(collection(db,"loans"),{
+    borrowerId:selectedBorrowerId,
+    principal,
+    interestPercent,
+    upfrontInterest,
+    periods,
+    installmentAmount,
+    status:"active",
+    branchId:currentUser.branchId,
+    createdBy:currentUser.uid,
+    createdAt:Timestamp.now()
+  });
+
+  await addDoc(collection(db,"collections"),{
+    loanId:loanRef.id,
+    amount:upfrontInterest,
+    type:"upfront",
+    branchId:currentUser.branchId,
+    createdAt:Timestamp.now()
+  });
+
+  for(let i=1;i<=periods;i++){
+
+    const dueDate = new Date(startDate);
+    dueDate.setDate(dueDate.getDate() + (days*i));
+
+    await addDoc(collection(db,"installments"),{
+      loanId:loanRef.id,
+      borrowerId:selectedBorrowerId,
+      amount:installmentAmount,
+      installmentNumber:i,
+      dueDate:dueDate,
+      status:"pending",
+      branchId:currentUser.branchId
+    });
+  }
+
+  alert("Loan Created Successfully");
+  window.location.href = "/ravi-loans/dashboard.html";
+
+});
+
+window.goDashboard = function(){
+  window.location.href = "/ravi-loans/dashboard.html";
+};
+
+</script>
+</body>
+</html>

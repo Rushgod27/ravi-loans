@@ -6,62 +6,17 @@
 <title>Borrowers</title>
 
 <style>
-body{
-  margin:0;
-  font-family:system-ui;
-  background:#f1f5f9;
-  padding:16px;
-}
-.header{
-  font-size:20px;
-  font-weight:600;
-  margin-bottom:16px;
-}
-.card{
-  background:#fff;
-  padding:16px;
-  border-radius:14px;
-  margin-bottom:12px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.05);
-}
-input{
-  width:100%;
-  padding:12px;
-  margin-bottom:10px;
-  border-radius:10px;
-  border:1px solid #ddd;
-}
-button{
-  width:100%;
-  padding:12px;
-  background:#2563eb;
-  border:none;
-  color:white;
-  border-radius:10px;
-  font-weight:600;
-}
-.nav{
-  position:fixed;
-  bottom:0;
-  left:0;
-  right:0;
-  height:60px;
-  background:#fff;
-  border-top:1px solid #ddd;
-  display:flex;
-  justify-content:space-around;
-  align-items:center;
-}
-.active{
-  color:#2563eb;
-  font-weight:600;
-}
+body{font-family:system-ui;background:#f1f5f9;margin:0;padding:20px;}
+.card{background:#fff;padding:16px;border-radius:12px;margin-bottom:12px;}
+input{width:100%;padding:12px;margin-bottom:10px;border-radius:8px;border:1px solid #ccc;}
+button{width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;}
+.nav{position:fixed;bottom:0;left:0;right:0;height:60px;background:#fff;border-top:1px solid #ddd;display:flex;justify-content:space-around;align-items:center;}
+.active{color:#2563eb;font-weight:600;}
 </style>
-
 </head>
 <body>
 
-<div class="header">Borrowers</div>
+<h2>Borrowers</h2>
 
 <div class="card">
   <input id="name" placeholder="Borrower Name">
@@ -78,14 +33,9 @@ button{
 </div>
 
 <script type="module">
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, onAuthStateChanged }
-from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-import { getFirestore, collection, addDoc, getDocs, query, where, Timestamp }
-from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCX4nJv28LRTtCcH3sjj-LUiXzYfxK3SDM",
@@ -102,16 +52,13 @@ const db = getFirestore(app);
 
 let currentUser = null;
 
-// Proper authentication protection
 onAuthStateChanged(auth, async (user) => {
-
   if (!user) {
     window.location.href = "/ravi-loans/login.html";
     return;
   }
 
   currentUser = JSON.parse(localStorage.getItem("raviUser"));
-
   if (!currentUser) {
     window.location.href = "/ravi-loans/login.html";
     return;
@@ -121,27 +68,10 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 document.getElementById("saveBtn").addEventListener("click", async () => {
-
   const name = document.getElementById("name").value.trim();
   const phone = document.getElementById("phone").value.trim();
-  const message = document.getElementById("message");
 
-  if (!name || !phone) {
-    message.innerText = "Fill all fields";
-    return;
-  }
-
-  const duplicateCheck = await getDocs(
-    query(collection(db,"borrowers"),
-    where("branchId","==",currentUser.branchId),
-    where("phone","==",phone))
-  );
-
-  if (!duplicateCheck.empty) {
-    if (!confirm("Borrower with this phone already exists. Continue?")) {
-      return;
-    }
-  }
+  if (!name || !phone) return;
 
   await addDoc(collection(db,"borrowers"),{
     name,
@@ -151,17 +81,13 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
     createdAt: Timestamp.now()
   });
 
-  message.innerText = "Borrower Saved";
-
   document.getElementById("name").value="";
   document.getElementById("phone").value="";
 
   loadBorrowers();
-
 });
 
 async function loadBorrowers(){
-
   const list = document.getElementById("list");
   list.innerHTML = "";
 
@@ -172,7 +98,6 @@ async function loadBorrowers(){
 
   snap.forEach(doc=>{
     const b = doc.data();
-
     list.innerHTML += `
       <div class="card">
         <b>${b.name}</b><br>
@@ -185,7 +110,6 @@ async function loadBorrowers(){
 window.goDashboard = function(){
   window.location.href = "/ravi-loans/dashboard.html";
 };
-
 </script>
 
 </body>

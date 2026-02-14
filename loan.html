@@ -72,6 +72,7 @@ button{
 
 <div class="nav">
   <div onclick="goDashboard()">Dashboard</div>
+  <div onclick="goBorrowers()">Borrowers</div>
   <div class="active">Loans</div>
 </div>
 
@@ -245,6 +246,11 @@ document.getElementById("createBtn")
 window.goDashboard = function(){
   window.location.href = "/ravi-loans/dashboard.html";
 };
+
+window.goBorrowers = function(){
+  window.location.href = "/ravi-loans/borrowers.html";
+};
+
 
 </script>
 </body>

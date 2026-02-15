@@ -61,9 +61,10 @@ button{
 <!-- LOGIN -->
 <div id="loginSection">
   <div class="card">
-    <h3>Email Login</h3>
-    <input type="email" id="email" placeholder="Enter your email">
-    <button onclick="sendLoginLink()">Send Login Link</button>
+    <h3>Login</h3>
+    <input type="email" id="email" placeholder="Email">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="loginUser()">Login</button>
   </div>
 </div>
 
@@ -75,6 +76,16 @@ button{
   <span class="logout" onclick="logoutUser()">Logout</span>
 </div>
 
+<!-- FORCE PASSWORD CHANGE -->
+<div id="forcePasswordSection" class="hidden">
+  <div class="card">
+    <h3>Change Password</h3>
+    <input type="password" id="newPassword" placeholder="New Password">
+    <button onclick="updatePasswordNow()">Update Password</button>
+  </div>
+</div>
+
+<!-- BOSS DASHBOARD -->
 <div id="bossDashboard" class="hidden">
 
   <div class="card">
@@ -82,6 +93,7 @@ button{
     <input id="ownerName" placeholder="Owner Name">
     <input id="ownerPhone" placeholder="Owner Phone">
     <input id="ownerEmail" placeholder="Owner Email">
+    <input id="ownerPassword" placeholder="Temporary Password">
     <button onclick="addOwner()">Create Owner</button>
   </div>
 
@@ -96,14 +108,14 @@ button{
 
 <script type="module">
 
-import { initializeApp } from 
+import { initializeApp, getApp } from 
 "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 
 import {
   getAuth,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updatePassword,
   onAuthStateChanged,
   signOut
 } from 
@@ -121,14 +133,11 @@ import {
 } from 
 "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-/* ===== FIREBASE CONFIG ===== */
+/* FIREBASE CONFIG */
 const firebaseConfig = {
   apiKey: "AIzaSyCX4nJv28LRTtCcH3sjj-LUiXzYfxK3SDM",
   authDomain: "loan-management-system-a5bd8.firebaseapp.com",
-  projectId: "loan-management-system-a5bd8",
-  storageBucket: "loan-management-system-a5bd8.firebasestorage.app",
-  messagingSenderId: "29727312343",
-  appId: "1:29727312343:web:14e58637f47a0994fde392"
+  projectId: "loan-management-system-a5bd8"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -138,68 +147,49 @@ const db = getFirestore(app);
 let currentUserId = null;
 let currentUserRole = null;
 
-/* ===== IMPORTANT FOR GITHUB ===== */
-const actionCodeSettings = {
-  url: window.location.href,
-  handleCodeInApp: true
-};
-
-/* ===== SEND LOGIN LINK ===== */
-window.sendLoginLink = async function(){
+/* LOGIN */
+window.loginUser = async function(){
 
   const emailVal = document.getElementById("email").value.trim();
-  if(!emailVal){
-    alert("Enter email first");
+  const passVal = document.getElementById("password").value.trim();
+
+  if(!emailVal || !passVal){
+    alert("Enter email and password");
     return;
   }
 
   try{
-    await sendSignInLinkToEmail(auth, emailVal, actionCodeSettings);
-    localStorage.setItem("emailForSignIn", emailVal);
-    alert("Login link sent. Check your email.");
+    await signInWithEmailAndPassword(auth,emailVal,passVal);
   }catch(err){
     alert(err.message);
   }
-
 };
 
-/* ===== COMPLETE LOGIN ===== */
-if (isSignInWithEmailLink(auth, window.location.href)) {
-
-  let emailVal = localStorage.getItem("emailForSignIn");
-
-  if (!emailVal) {
-    emailVal = prompt("Confirm your email");
-  }
-
-  signInWithEmailLink(auth, emailVal, window.location.href)
-    .then(() => {
-      localStorage.removeItem("emailForSignIn");
-    })
-    .catch((error) => {
-      alert(error.message);
-    });
-}
-
-/* ===== AUTH STATE ===== */
+/* AUTH STATE */
 onAuthStateChanged(auth, async(user)=>{
 
   if(user){
 
-    currentUserId = user.email; // email used as ID
+    currentUserId = user.uid;
 
-    const snap = await getDoc(doc(db,"users",user.email));
+    const snap = await getDoc(doc(db,"users",user.uid));
 
     if(!snap.exists()){
-      alert("Access denied. User not registered.");
+      alert("User not registered.");
       await signOut(auth);
       return;
     }
 
-    currentUserRole = snap.data().role;
+    const userData = snap.data();
+    currentUserRole = userData.role;
 
     document.getElementById("loginSection").classList.add("hidden");
     document.getElementById("appSection").classList.remove("hidden");
+
+    if(userData.mustChangePassword){
+      document.getElementById("forcePasswordSection").classList.remove("hidden");
+      return;
+    }
 
     if(currentUserRole === "boss"){
       document.getElementById("bossDashboard").classList.remove("hidden");
@@ -213,12 +203,45 @@ onAuthStateChanged(auth, async(user)=>{
 
 });
 
-/* ===== LOGOUT ===== */
+/* UPDATE PASSWORD */
+window.updatePasswordNow = async function(){
+
+  const newPass = document.getElementById("newPassword").value.trim();
+
+  if(newPass.length < 6){
+    alert("Password must be at least 6 characters.");
+    return;
+  }
+
+  try{
+
+    await updatePassword(auth.currentUser, newPass);
+
+    await setDoc(doc(db,"users",currentUserId),{
+      mustChangePassword:false
+    },{merge:true});
+
+    document.getElementById("forcePasswordSection").classList.add("hidden");
+
+    alert("Password updated successfully.");
+
+    if(currentUserRole === "boss"){
+      document.getElementById("bossDashboard").classList.remove("hidden");
+      loadOwners();
+    }
+
+  }catch(err){
+    alert(err.message);
+  }
+
+};
+
+/* LOGOUT */
 window.logoutUser = async function(){
   await signOut(auth);
 };
 
-/* ===== ADD OWNER ===== */
+/* ADD OWNER */
 window.addOwner = async function(){
 
   if(currentUserRole !== "boss"){
@@ -229,31 +252,58 @@ window.addOwner = async function(){
   const name = ownerName.value.trim();
   const phone = ownerPhone.value.trim();
   const emailVal = ownerEmail.value.trim();
+  const passwordVal = ownerPassword.value.trim();
 
-  if(!name || !phone || !emailVal){
+  if(!name || !phone || !emailVal || !passwordVal){
     alert("Fill all fields");
     return;
   }
 
-  await setDoc(doc(db,"users",emailVal),{
-    name:name,
-    phone:phone,
-    email:emailVal,
-    role:"owner",
-    bossId:currentUserId,
-    createdAt:Date.now()
-  });
+  let secondaryApp;
 
-  alert("Owner added successfully.\nOwner must login using Email Link.");
+  try{
+    secondaryApp = getApp("SecondaryApp");
+  }catch{
+    secondaryApp = initializeApp(firebaseConfig,"SecondaryApp");
+  }
 
-  ownerName.value="";
-  ownerPhone.value="";
-  ownerEmail.value="";
+  const secondaryAuth = getAuth(secondaryApp);
 
-  loadOwners();
+  try{
+
+    const userCred = await createUserWithEmailAndPassword(
+      secondaryAuth,
+      emailVal,
+      passwordVal
+    );
+
+    await setDoc(doc(db,"users",userCred.user.uid),{
+      name:name,
+      phone:phone,
+      email:emailVal,
+      role:"owner",
+      bossId:currentUserId,
+      mustChangePassword:true,
+      createdAt:Date.now()
+    });
+
+    await secondaryAuth.signOut();
+
+    alert("Owner created successfully.");
+
+    ownerName.value="";
+    ownerPhone.value="";
+    ownerEmail.value="";
+    ownerPassword.value="";
+
+    loadOwners();
+
+  }catch(err){
+    alert(err.message);
+  }
 };
 
-/* ===== LOAD OWNERS ===== */
+/* LOAD OWNERS */
 async function loadOwners(){
 
   const q = query(
@@ -266,28 +316,23 @@ async function loadOwners(){
 
   let html="";
 
-  if(snap.empty){
-    html="<p>No owners found.</p>";
-  }else{
-    snap.forEach(doc=>{
-      const data=doc.data();
-      html+=`
-        <div class="owner-item">
-          <b>${data.name}</b><br>
-          📞 ${data.phone}<br>
-          ✉ ${data.email}<br>
-          <div class="small">
-            Created: ${new Date(data.createdAt).toLocaleDateString()}
-          </div>
+  snap.forEach(doc=>{
+    const data=doc.data();
+    html+=`
+      <div class="owner-item">
+        <b>${data.name}</b><br>
+        📞 ${data.phone}<br>
+        ✉ ${data.email}<br>
+        <div class="small">
+          Created: ${new Date(data.createdAt).toLocaleDateString()}
         </div>
-      `;
-    });
-  }
+      </div>
+    `;
+  });
 
-  document.getElementById("ownersList").innerHTML=html;
+  document.getElementById("ownersList").innerHTML = html || "No owners found.";
 }
 
 </script>
-
 </body>
 </html>

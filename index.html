@@ -121,7 +121,7 @@ import {
 } from 
 "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-/* 🔥 YOUR FIREBASE CONFIG */
+/* ===== FIREBASE CONFIG ===== */
 const firebaseConfig = {
   apiKey: "AIzaSyCX4nJv28LRTtCcH3sjj-LUiXzYfxK3SDM",
   authDomain: "loan-management-system-a5bd8.firebaseapp.com",
@@ -138,19 +138,16 @@ const db = getFirestore(app);
 let currentUserId = null;
 let currentUserRole = null;
 
-/* ================= EMAIL LINK SETTINGS ================= */
-
+/* ===== IMPORTANT FOR GITHUB ===== */
 const actionCodeSettings = {
-  url: window.location.origin,
+  url: window.location.href,
   handleCodeInApp: true
 };
 
-/* ================= SEND LOGIN LINK ================= */
-
+/* ===== SEND LOGIN LINK ===== */
 window.sendLoginLink = async function(){
 
   const emailVal = document.getElementById("email").value.trim();
-
   if(!emailVal){
     alert("Enter email first");
     return;
@@ -166,8 +163,7 @@ window.sendLoginLink = async function(){
 
 };
 
-/* ================= COMPLETE LOGIN ================= */
-
+/* ===== COMPLETE LOGIN ===== */
 if (isSignInWithEmailLink(auth, window.location.href)) {
 
   let emailVal = localStorage.getItem("emailForSignIn");
@@ -185,15 +181,14 @@ if (isSignInWithEmailLink(auth, window.location.href)) {
     });
 }
 
-/* ================= AUTH STATE ================= */
-
+/* ===== AUTH STATE ===== */
 onAuthStateChanged(auth, async(user)=>{
 
   if(user){
 
-    currentUserId = user.uid;
+    currentUserId = user.email; // email used as ID
 
-    const snap = await getDoc(doc(db,"users",user.uid));
+    const snap = await getDoc(doc(db,"users",user.email));
 
     if(!snap.exists()){
       alert("Access denied. User not registered.");
@@ -218,14 +213,12 @@ onAuthStateChanged(auth, async(user)=>{
 
 });
 
-/* ================= LOGOUT ================= */
-
+/* ===== LOGOUT ===== */
 window.logoutUser = async function(){
   await signOut(auth);
 };
 
-/* ================= ADD OWNER ================= */
-
+/* ===== ADD OWNER ===== */
 window.addOwner = async function(){
 
   if(currentUserRole !== "boss"){
@@ -258,11 +251,9 @@ window.addOwner = async function(){
   ownerEmail.value="";
 
   loadOwners();
-
 };
 
-/* ================= LOAD OWNERS ================= */
-
+/* ===== LOAD OWNERS ===== */
 async function loadOwners(){
 
   const q = query(
@@ -294,7 +285,6 @@ async function loadOwners(){
   }
 
   document.getElementById("ownersList").innerHTML=html;
-
 }
 
 </script>

@@ -3,35 +3,130 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ravi Loans - Login</title>
+<title>Loan Hierarchy System</title>
 
 <style>
-body{font-family:system-ui;background:#f1f5f9;margin:0;padding:20px;}
-input{display:block;width:100%;padding:14px;margin-bottom:10px;border-radius:8px;border:1px solid #ccc;}
-button{padding:14px;width:100%;background:#2563eb;color:#fff;border:none;border-radius:8px;font-weight:600;}
-.error{color:red;margin-top:10px;font-size:14px;}
+body{margin:0;font-family:system-ui;background:#f1f5f9;}
+.hidden{display:none;}
+.card{
+  background:#fff;
+  padding:16px;
+  margin:16px;
+  border-radius:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.05);
+}
+input{
+  width:100%;
+  padding:12px;
+  margin-bottom:10px;
+  border-radius:8px;
+  border:1px solid #ddd;
+}
+button{
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:8px;
+  background:#2563eb;
+  color:#fff;
+  font-weight:600;
+}
+.header{
+  background:#2563eb;
+  color:#fff;
+  padding:14px;
+  text-align:center;
+  font-weight:600;
+  position:relative;
+}
+.logout{
+  position:absolute;
+  right:15px;
+  top:14px;
+  font-size:14px;
+  cursor:pointer;
+}
+.owner-item{
+  padding:10px;
+  border-bottom:1px solid #eee;
+}
+.small{
+  font-size:12px;
+  color:#6b7280;
+}
 </style>
 </head>
 <body>
 
-<h2>Ravi Loans</h2>
+<!-- LOGIN -->
+<div id="loginSection">
+  <div class="card">
+    <h3>Email Login</h3>
+    <input type="email" id="email" placeholder="Enter your email">
+    <button onclick="sendLoginLink()">Send Login Link</button>
+  </div>
+</div>
 
-<input id="email" placeholder="Email">
-<input id="password" type="password" placeholder="Password">
-<button id="loginBtn">Login</button>
+<!-- MAIN APP -->
+<div id="appSection" class="hidden">
 
-<p id="error" class="error"></p>
+<div class="header">
+  Loan Management System
+  <span class="logout" onclick="logoutUser()">Logout</span>
+</div>
+
+<div id="bossDashboard" class="hidden">
+
+  <div class="card">
+    <h3>Add Owner</h3>
+    <input id="ownerName" placeholder="Owner Name">
+    <input id="ownerPhone" placeholder="Owner Phone">
+    <input id="ownerEmail" placeholder="Owner Email">
+    <button onclick="addOwner()">Create Owner</button>
+  </div>
+
+  <div class="card">
+    <h3>Owners List</h3>
+    <div id="ownersList">Loading...</div>
+  </div>
+
+</div>
+
+</div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+import { initializeApp } from 
+"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+
+import {
+  getAuth,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
+  onAuthStateChanged,
+  signOut
+} from 
+"https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  collection,
+  query,
+  where
+} from 
+"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+/* 🔥 YOUR FIREBASE CONFIG */
 const firebaseConfig = {
   apiKey: "AIzaSyCX4nJv28LRTtCcH3sjj-LUiXzYfxK3SDM",
   authDomain: "loan-management-system-a5bd8.firebaseapp.com",
   projectId: "loan-management-system-a5bd8",
-  storageBucket: "loan-management-system-a5bd8.appspot.com",
+  storageBucket: "loan-management-system-a5bd8.firebasestorage.app",
   messagingSenderId: "29727312343",
   appId: "1:29727312343:web:14e58637f47a0994fde392"
 };
@@ -40,41 +135,168 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-document.getElementById("loginBtn").addEventListener("click", async () => {
+let currentUserId = null;
+let currentUserRole = null;
 
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
-  const errorEl = document.getElementById("error");
+/* ================= EMAIL LINK SETTINGS ================= */
 
-  errorEl.innerText = "";
+const actionCodeSettings = {
+  url: window.location.origin,
+  handleCodeInApp: true
+};
 
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const uid = userCredential.user.uid;
+/* ================= SEND LOGIN LINK ================= */
 
-    const userDoc = await getDoc(doc(db, "users", uid));
+window.sendLoginLink = async function(){
 
-    if (!userDoc.exists()) {
-      errorEl.innerText = "User profile not found.";
+  const emailVal = document.getElementById("email").value.trim();
+
+  if(!emailVal){
+    alert("Enter email first");
+    return;
+  }
+
+  try{
+    await sendSignInLinkToEmail(auth, emailVal, actionCodeSettings);
+    localStorage.setItem("emailForSignIn", emailVal);
+    alert("Login link sent. Check your email.");
+  }catch(err){
+    alert(err.message);
+  }
+
+};
+
+/* ================= COMPLETE LOGIN ================= */
+
+if (isSignInWithEmailLink(auth, window.location.href)) {
+
+  let emailVal = localStorage.getItem("emailForSignIn");
+
+  if (!emailVal) {
+    emailVal = prompt("Confirm your email");
+  }
+
+  signInWithEmailLink(auth, emailVal, window.location.href)
+    .then(() => {
+      localStorage.removeItem("emailForSignIn");
+    })
+    .catch((error) => {
+      alert(error.message);
+    });
+}
+
+/* ================= AUTH STATE ================= */
+
+onAuthStateChanged(auth, async(user)=>{
+
+  if(user){
+
+    currentUserId = user.uid;
+
+    const snap = await getDoc(doc(db,"users",user.uid));
+
+    if(!snap.exists()){
+      alert("Access denied. User not registered.");
+      await signOut(auth);
       return;
     }
 
-    const data = userDoc.data();
+    currentUserRole = snap.data().role;
 
-    localStorage.setItem("raviUser", JSON.stringify({
-      uid: uid,
-      role: data.role,
-      branchId: data.branchId,
-      name: data.name
-    }));
+    document.getElementById("loginSection").classList.add("hidden");
+    document.getElementById("appSection").classList.remove("hidden");
 
-    window.location.href = "/ravi-loans/dashboard.html";
+    if(currentUserRole === "boss"){
+      document.getElementById("bossDashboard").classList.remove("hidden");
+      loadOwners();
+    }
 
-  } catch (err) {
-    errorEl.innerText = err.message;
+  }else{
+    document.getElementById("loginSection").classList.remove("hidden");
+    document.getElementById("appSection").classList.add("hidden");
   }
 
 });
+
+/* ================= LOGOUT ================= */
+
+window.logoutUser = async function(){
+  await signOut(auth);
+};
+
+/* ================= ADD OWNER ================= */
+
+window.addOwner = async function(){
+
+  if(currentUserRole !== "boss"){
+    alert("Access denied");
+    return;
+  }
+
+  const name = ownerName.value.trim();
+  const phone = ownerPhone.value.trim();
+  const emailVal = ownerEmail.value.trim();
+
+  if(!name || !phone || !emailVal){
+    alert("Fill all fields");
+    return;
+  }
+
+  await setDoc(doc(db,"users",emailVal),{
+    name:name,
+    phone:phone,
+    email:emailVal,
+    role:"owner",
+    bossId:currentUserId,
+    createdAt:Date.now()
+  });
+
+  alert("Owner added successfully.\nOwner must login using Email Link.");
+
+  ownerName.value="";
+  ownerPhone.value="";
+  ownerEmail.value="";
+
+  loadOwners();
+
+};
+
+/* ================= LOAD OWNERS ================= */
+
+async function loadOwners(){
+
+  const q = query(
+    collection(db,"users"),
+    where("role","==","owner"),
+    where("bossId","==",currentUserId)
+  );
+
+  const snap = await getDocs(q);
+
+  let html="";
+
+  if(snap.empty){
+    html="<p>No owners found.</p>";
+  }else{
+    snap.forEach(doc=>{
+      const data=doc.data();
+      html+=`
+        <div class="owner-item">
+          <b>${data.name}</b><br>
+          📞 ${data.phone}<br>
+          ✉ ${data.email}<br>
+          <div class="small">
+            Created: ${new Date(data.createdAt).toLocaleDateString()}
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  document.getElementById("ownersList").innerHTML=html;
+
+}
+
 </script>
 
 </body>
